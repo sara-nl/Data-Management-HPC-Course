@@ -78,12 +78,16 @@ Copy some data to your archive directory:
 cp /home/narges/workdir/* /archive/narges/archivedir
 ```
 
-Now do a dmls to 
+Also lets copy a big file for migrating to tape, using DMF commands:
+
+```
+cp /archive/sdemo000/bigdata.mb /archive/narges/archivedir
+```
 
 
 ### DMF commands
 
-DMF (Data Migration Facility) is a hierarchical storage management system for Silicon Graphics environments. Its primary purpose is to augment the economic value of storage media and stored data. DMF commands ate Tape aware and facilitate staging data from tape and putting data on tape.
+DMF (Data Migration Facility) is a hierarchical storage management system for Silicon Graphics environments. Its primary purpose is to augment the economic value of storage media and stored data. DMF commands are Tape aware and facilitate staging data from tape and putting data on tape.
 
 If you are handling really large amounts of data, the DMF utilities come in useful. On Lisa and Cartesius the DMF utilities are system-wide installed.
 
@@ -113,10 +117,10 @@ Now list the contents of the archivedir in our archive directory, using `dmls` c
 ```
 dmls -l /archive/narges/archivedir
 
-total 0
--rw-------  1 narges    narges    2097152 2020-01-21 22:15 (REG) data1
--rw-------  1 narges    narges    2097152 2020-01-21 22:15 (REG) data2
--rw-------  1 narges    narges    2097152 2020-01-21 22:15 (REG) data3
+-rwx------  1 narges    narges    38400000 2020-01-22 10:12 (REG) bigdata.mb
+-rw-------  1 narges    narges     2097152 2020-01-21 22:15 (REG) data1
+-rw-------  1 narges    narges     2097152 2020-01-21 22:15 (REG) data2
+-rw-------  1 narges    narges     2097152 2020-01-21 22:15 (REG) data3
 ```
 
 What is the difference between the output of running `dmls` on your workdir on Lisa and on archivedir in your archive directory?
@@ -136,19 +140,47 @@ Now, change your curreent directory to the archivedir in your archive directory.
 cd /archive/narges/archivedir
 ```
 
-Put data1 file on tape using `dmput` command:
+Let's put a file on tape using the using `dmput` command. First try pushing the 2MB `data1` file to tape by the following command:
 
 ```
 dmput -r data1
 ```
 
-Now do a `dmls` in your archivedir to see the status of the files again. Are there any changes? Why?
+Run `dmls -l`, is there any change?
+
+Now try putting `bigdata.mb` to tape using `dmput` command:
+
+```
+dmput -r bigdata.mb
+```
+
+Now run the `dmls -l` command again and see what happens?
+
+```
+/archive/narges/archivedir$ dmls -l
+
+total 37500
+-rwx------  1 narges    narges    38400000 2020-01-22 10:12 (MIG) bigdata.mb
+-rw-------  1 narges    narges     2097152 2020-01-21 22:15 (REG) data1
+-rw-------  1 narges    narges     2097152 2020-01-21 22:15 (REG) data2
+-rw-------  1 narges    narges     2097152 2020-01-21 22:15 (REG) data3
+```
+
+You see that the status of the file is changed to MIG, which means the file is being migrated from disk to tape.
+
+Try running the `dmls` in your archive directory few minutes later and see if you see any other change in the file status again? 
+
+TO retrieve a file that is on tape (with status OFL), the file should always be staged first to the disk, and then be accessed (read/write/exec). To stage a file from the Data Archive, `dmget` command should be used:
+
+```
+dmget -a <file>
+```
 
 ## Part 2: Archive using dmftar
 
 Learn how to pack directory contents using the dmftar tool. dmftar is available on the Data Archive, Cartesius and Lisa services. Recently the tool is made open source (https://gitlab.com/surfsara/dmftar)
 
-The dmftar tool is invoked by entering `dmftar` as a command. It is available to all users and in all directories. On the Lisa cluster, you need to load modules below:
+The dmftar tool is invoked by entering `dmftar` as a command. Lisa does not know this commands by default. We need to load the modules first:
 
 ```
 module load pre2019
@@ -343,5 +375,15 @@ Lets unpack the dmftar file `data-files-extract.dmftar` directly from the archiv
 ```
 dmftar -x -f /archive/<username>/archivedir/files.dmftar
 ```
+
+
+## Extra: Integrate archiving with compute workflows
+Archiving can be integrated in your compute workflows. But be aware that:
+
+- In Cartesius, the /archive file system is only available on the login nodes and on the service nodes, not on the batch compute nodes.
+
+- You should always first stage the files before accessing them in your workflow.
+
+- Do not archive many small files (they can end up scattered across many different tapes requiring a lot of physical tape mounts). Instead, make archive files of at least 1 GB using dmftar and then put them in the Archive.
 
 
